@@ -4,6 +4,7 @@
 #include <string.h>
 #include <vector>
 #include <cmath>
+#include <algorithm>
 #include "Person.h"
 
 #define TOKEN ","
@@ -13,7 +14,7 @@
 #define StudentSize 32
 #define ProfessorSize 28
 
-#define Bfactor 510
+#define Bfactor 509
 using namespace std;
 
 int stu_valid_size = 1;
@@ -92,7 +93,125 @@ struct HashAddressTableElement {
 	int block_num;
 	int record_num;
 };
+class NodeElement {
+public:
+	int blockNumber;
+	float score;
 
+	NodeElement(int blockNumber, float score) {
+		this->blockNumber = blockNumber;
+		this->score = score;
+	}
+};
+class Node {
+public:
+	
+	bool isLeaf;
+	int thisblockNumber;
+	int elementNumber;
+	vector<NodeElement> element;
+	int nextNode;
+	int lastBlockNumber;
+
+};
+bool CompareObj(NodeElement &e1, NodeElement &e2) {
+	return e1.score < e2.score;
+}
+int BtreeAllocatedBlock = 0;
+class Btree {
+public:
+	Node* root;
+	Btree() {
+		root = new Node();
+		root->isLeaf = true;
+		root->nextNode = NULL;
+		root->thisblockNumber = 0;
+	}
+	void insert(float score, int blockNumber, ofstream* bout) {
+		if (root->isLeaf == true) {
+
+			NodeElement* e = new NodeElement(blockNumber,score);
+			root->element.push_back(*e);
+			sort(root->element.begin(), root->element.end(), CompareObj);
+			if (root->element.size() > Bfactor) {
+				Node* node1 = new Node();
+				Node* node2 = new Node();
+				Node* rootNode = new Node();
+				int mid_idx = root->element.size() / 2;
+
+				node1->isLeaf = true;
+				node1->thisblockNumber = ++BtreeAllocatedBlock;
+				node1->elementNumber = mid_idx;
+				node1->nextNode = BtreeAllocatedBlock + 1;
+				node1->lastBlockNumber = 0;
+				//node1->element
+				Block b1, b2;
+				bout->seekp(BlockSize* node1->thisblockNumber);
+				bout->write((char*)&b1, sizeof b1);
+
+				bout->seekp(BlockSize* node1->thisblockNumber);
+				bout->write((char*)&node1->isLeaf, 1);
+				bout->seekp(BlockSize* node1->thisblockNumber+1);
+				bout->write((char*)&node1->thisblockNumber, 4);
+				bout->seekp(BlockSize* node1->thisblockNumber + 5);
+				bout->write((char*)&node1->elementNumber, 4);
+				
+				bout->seekp(BlockSize* node1->thisblockNumber + 9 );
+				bout->write((char*)&node1->nextNode, 4);
+				bout->seekp(BlockSize* node1->thisblockNumber + 13);
+				bout->write((char*)&node1->lastBlockNumber, 4);
+				for (int i = 0; i < mid_idx; i++) {
+					bout->seekp(BlockSize* node1->thisblockNumber + 17 + (i * 8));
+					bout->write((char*)&node1->element[i].blockNumber, 4);
+					bout->seekp(BlockSize* node1->thisblockNumber + 17 + (i * 8) + 4);
+					bout->write((char*)&node1->element[i].score, 4);
+				}
+
+				node2->isLeaf = true;
+				node2->thisblockNumber = ++BtreeAllocatedBlock;
+				node2->elementNumber = mid_idx;
+				node2->nextNode = 0;
+				node2->lastBlockNumber = 0;
+				//node2->element
+		
+				bout->seekp(BlockSize* node2->thisblockNumber);
+				bout->write((char*)&b2, sizeof b2);
+
+				bout->seekp(BlockSize* node2->thisblockNumber);
+				bout->write((char*)&node2->isLeaf, 1);
+				bout->seekp(BlockSize* node2->thisblockNumber + 1);
+				bout->write((char*)&node2->thisblockNumber, 4);
+				bout->seekp(BlockSize* node2->thisblockNumber + 5);
+				bout->write((char*)&node2->elementNumber, 4);
+
+				bout->seekp(BlockSize* node2->thisblockNumber + 9);
+				bout->write((char*)&node2->nextNode, 4);
+				bout->seekp(BlockSize* node2->thisblockNumber + 13);
+				bout->write((char*)&node2->lastBlockNumber, 4);
+				for (int i = mid_idx; i < root->element.size(); i++) {
+					bout->seekp(BlockSize* node2->thisblockNumber + 17 + ( (i-mid_idx) * 8));
+					bout->write((char*)&node2->element[i].blockNumber, 4);
+					bout->seekp(BlockSize* node2->thisblockNumber + 17 + ( (i-mid_idx) * 8) + 4);
+					bout->write((char*)&node2->element[i].score, 4);
+				}
+				rootNode->isLeaf = false;
+				rootNode->elementNumber = 1;
+				NodeElement* midEle = new NodeElement(node1->thisblockNumber, rootNode->element[mid_idx].score);
+				rootNode->element.push_back(*midEle);
+				rootNode->lastBlockNumber = node2->thisblockNumber;
+				rootNode->nextNode = 0;
+				rootNode->thisblockNumber = 0;
+				
+				root = rootNode;
+				delete node1, node2, rootNode,midEle;
+			}
+
+		}
+	}
+	void resize() {
+
+	}
+};
 class HashAddressTable {
 public:
 
@@ -472,8 +591,11 @@ int main() {
 		faddr.write((char*)&addr_table->profHashAddrTable[i].record_num, 4);
 	}
 
-	faddr.close();
-	ifstream faddr2("HashAddressTable.hash", ios_base::in | ios_base::binary);
+	ofstream* bTreeOut = new ofstream();
+	bTreeOut->open("student.idx", ios_base::out | ios_base::binary);
+	Block bb;
+	bTreeOut->write((char*)&bb, sizeof bb);
+
 	
 	fin_stu.close();
 	fin_prof.close();

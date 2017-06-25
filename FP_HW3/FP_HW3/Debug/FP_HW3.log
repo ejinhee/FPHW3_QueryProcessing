@@ -1,5 +1,6 @@
 ﻿  HW3.cpp
-c:\users\leejinhee\documents\visual studio 2015\projects\fp_hw3\fp_hw3\hw3.cpp(192): warning C4018: '<': signed 또는 unsigned가 일치하지 않습니다.
-c:\users\leejinhee\documents\visual studio 2015\projects\fp_hw3\fp_hw3\hw3.cpp(319): warning C4018: '<': signed 또는 unsigned가 일치하지 않습니다.
+c:\users\leejinhee\documents\visual studio 2015\projects\fp_hw3\fp_hw3\hw3.cpp(191): warning C4018: '<': signed 또는 unsigned가 일치하지 않습니다.
+c:\users\leejinhee\documents\visual studio 2015\projects\fp_hw3\fp_hw3\hw3.cpp(311): warning C4018: '<': signed 또는 unsigned가 일치하지 않습니다.
+c:\users\leejinhee\documents\visual studio 2015\projects\fp_hw3\fp_hw3\hw3.cpp(438): warning C4018: '<': signed 또는 unsigned가 일치하지 않습니다.
   FP_HW3.vcxproj -> C:\Users\LEEJINHEE\Documents\Visual Studio 2015\Projects\FP_HW3\Debug\FP_HW3.exe
   FP_HW3.vcxproj -> C:\Users\LEEJINHEE\Documents\Visual Studio 2015\Projects\FP_HW3\Debug\FP_HW3.pdb (Full PDB)
