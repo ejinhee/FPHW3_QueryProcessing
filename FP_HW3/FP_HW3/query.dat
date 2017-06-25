@@ -1,0 +1,4 @@
+3
+Search-Exact,Students,StuID,26804
+Search-Exact,Professors,ProfID,844911
+Join, Professors, Students
