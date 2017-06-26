@@ -1,6 +1,8 @@
 ﻿  HW3.cpp
-c:\users\leejinhee\documents\visual studio 2015\projects\fp_hw3\fp_hw3\hw3.cpp(191): warning C4018: '<': signed 또는 unsigned가 일치하지 않습니다.
-c:\users\leejinhee\documents\visual studio 2015\projects\fp_hw3\fp_hw3\hw3.cpp(311): warning C4018: '<': signed 또는 unsigned가 일치하지 않습니다.
-c:\users\leejinhee\documents\visual studio 2015\projects\fp_hw3\fp_hw3\hw3.cpp(438): warning C4018: '<': signed 또는 unsigned가 일치하지 않습니다.
+  ExactSearch.cpp
+c:\users\leejinhee\documents\visual studio 2015\projects\fp_hw3\fp_hw3\exactsearch.cpp(111): warning C4018: '<': signed 또는 unsigned가 일치하지 않습니다.
+c:\users\leejinhee\documents\visual studio 2015\projects\fp_hw3\fp_hw3\exactsearch.cpp(117): warning C4018: '<': signed 또는 unsigned가 일치하지 않습니다.
+c:\users\leejinhee\documents\visual studio 2015\projects\fp_hw3\fp_hw3\exactsearch.cpp(160): warning C4101: 'ii' :참조되지 않은 지역 변수입니다.
+  코드를 생성하고 있습니다...
   FP_HW3.vcxproj -> C:\Users\LEEJINHEE\Documents\Visual Studio 2015\Projects\FP_HW3\Debug\FP_HW3.exe
   FP_HW3.vcxproj -> C:\Users\LEEJINHEE\Documents\Visual Studio 2015\Projects\FP_HW3\Debug\FP_HW3.pdb (Full PDB)

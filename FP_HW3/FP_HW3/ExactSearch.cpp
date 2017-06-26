@@ -1,4 +1,4 @@
-/*#include <iostream>
+#include <iostream>
 #include <fstream>
 #include <vector>
 #include <string>
@@ -15,6 +15,7 @@ using namespace std;
 int stu_n, prof_n, stu_valid_size, prof_valid_size;
 ifstream queryfile("query.dat");
 ifstream fin("HashAddressTable.hash", ios_base::in | ios_base::binary);
+
 ofstream res("query.res");
 class StudentXProfessor {
 public:
@@ -146,6 +147,79 @@ void naturalJoin() {
 	}
 
 }
+void rangeSearch(float score1, float score2) {
+	//bool rootIsLeaf = false;
+	ifstream bin("student.idx", ios_base::in | ios_base::binary);
+	int lastBlockNumber;
+	int numOfRecord;
+	int nextBlock=0;
+	int nextNode;
+	float score =0.0;
+	int thisBlockNum;
+	bool isLeaf = false;
+	int ii;
+	bin.read((char*)&isLeaf, 1);
+	while (!isLeaf) {
+		bin.seekg(BlockSize * nextBlock + 1);
+		bin.read((char*)&thisBlockNum, 4);
+		bin.seekg(BlockSize * nextBlock + 5);
+		bin.read((char*)&numOfRecord, 4);
+		bin.seekg(BlockSize * nextBlock + 13);
+		bin.read((char*)&lastBlockNumber, 4);
+
+		for (int i = 0; i < numOfRecord; i++) {
+			bin.seekg(BlockSize*thisBlockNum + 21 + (i * 8) + 4);
+			bin.read((char*)&score, 4);
+			if (score1 < score) {
+				bin.seekg(BlockSize*thisBlockNum + 21 + (8 * i));
+				bin.read((char*)&nextBlock, 4);
+				bin.seekg(BlockSize* nextBlock);
+				bin.read((char*)&isLeaf, 1);
+				break;
+			}
+			if (i == numOfRecord - 1) {
+				nextBlock = lastBlockNumber;
+				bin.seekg(BlockSize * nextBlock);
+				bin.read((char*)&isLeaf, 1);
+			}
+		}
+	}
+	bin.seekg(BlockSize * nextBlock + 1);
+	bin.read((char*)&thisBlockNum, 4);
+	bin.seekg(BlockSize * nextBlock + 5);
+	bin.read((char*)&numOfRecord, 4);
+	bin.seekg(BlockSize * nextBlock + 9);
+	bin.read((char*)&nextNode, 4);
+	bin.seekg(BlockSize * nextBlock + 13);
+	bin.read((char*)&lastBlockNumber, 4);
+	int HashBlock;
+	int cnt = 0;
+	res << "----- Range Search Result -----" << endl;
+	for (int i = 0; i < numOfRecord; i++) {
+		bin.seekg(BlockSize * thisBlockNum + 21 + (i * 8) + 4);
+		bin.read((char*)&score, 4);
+		if (score1 > score)
+			continue;
+		if (score2 < score)
+			break;
+		bin.seekg(BlockSize * thisBlockNum + 21 + (i * 8));
+		bin.read((char*)&HashBlock, 4);
+
+		Student* bstu = new Student[128];
+		ifstream ff("student.hash", ios_base::in | ios_base::binary);
+		ff.seekg(BlockSize * HashBlock);
+		ff.read((char*)&bstu[0], BlockSize);
+		
+		
+		for (int j = 0; j < 128; j++) {
+			if (bstu[j].stu_score == score) {
+				res << bstu[j].stu_name << " " << bstu[j].stu_id <<" " <<bstu[j].stu_score <<" " << bstu[j].stu_advisorid << endl;
+				cnt++;
+			}
+		}
+	}
+	res << "Number of result : " << cnt << endl <<endl;
+}
 char* token;
 char *context;
 char temp[50];
@@ -183,6 +257,22 @@ void query(string oper) {
 		search_Exact(oper, tableName, attributeName, key);
 	}
 	else if (oper == "Search-Range") {
+		
+		float score1, score2;
+		char attriName[20];
+		char tName[20];
+
+		token = strtok_s(NULL, TOKEN, &context);
+		copy(token, token + 20, tName);
+		token = strtok_s(NULL, TOKEN, &context);
+		copy(token, token + 20, attriName);
+		token = strtok_s(NULL, TOKEN, &context);
+		score1 = strtof(token, 0);
+		token = strtok_s(NULL, TOKEN, &context);
+		score2 = strtof(token, 0);
+
+		rangeSearch(score1, score2);
+		
 
 	}
 	else if (oper == "Join") {
@@ -213,4 +303,4 @@ int main() {
 	fin.close();
 	res.close();
 	return 0;
-}*/
+}

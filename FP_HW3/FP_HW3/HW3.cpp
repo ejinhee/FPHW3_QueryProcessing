@@ -1,4 +1,4 @@
-#include <iostream>
+/*#include <iostream>
 #include <fstream>
 #include <string>
 #include <string.h>
@@ -24,6 +24,7 @@ int prof_valid_size = 1;
 int prof_allocated_block = 0;
 ifstream fin_stu("student_data.csv");
 ifstream fin_prof("prof_data.csv");
+ifstream fin_btree("student_data.csv");
 
 ofstream fout_stu("students.db", ios_base::out | ios_base::binary);
 ofstream fout_prof("professor.db", ios_base::out | ios_base::binary);
@@ -33,7 +34,7 @@ ofstream fout_prof("professor.db", ios_base::out | ios_base::binary);
 
 
 struct Block {
-	int arr[1024] = { 1, };
+	Student arr[128];
 };
 
 Student getStudent() {
@@ -60,6 +61,31 @@ Student getStudent() {
 	stu.setAdvisorID(advid);
 
 	fout_stu.write((char*)&stu, sizeof stu);
+	return stu;
+}
+Student getStudentForBtree() {
+	char temp[50];
+	float score;
+	int stuid;
+	int advid;
+	char* token;
+	char *context;
+
+	Student stu;
+
+	fin_btree.getline(temp, 50);
+	token = strtok_s(temp, TOKEN, &context);
+	stu.setName(token);
+	token = strtok_s(NULL, TOKEN, &context);
+	stuid = stoul(token, nullptr, 0);
+	stu.setStuID(stuid);
+	token = strtok_s(NULL, TOKEN, &context);
+	score = strtof(token, 0);
+	stu.setScore(score);
+	token = strtok_s(NULL, TOKEN, &context);
+	advid = stoul(token, nullptr, 0);
+	stu.setAdvisorID(advid);
+
 	return stu;
 }
 Professor getProfessor() {
@@ -112,6 +138,7 @@ public:
 	vector<NodeElement> element;
 	int nextNode;
 	int lastBlockNumber;
+	int prevBlockNumber;
 
 };
 bool CompareObj(NodeElement &e1, NodeElement &e2) {
@@ -128,8 +155,10 @@ public:
 		root->thisblockNumber = 0;
 	}
 	void insert(float score, int blockNumber, ofstream* bout) {
+		int temp_blockNum;
+		float temp_score;
 		if (root->isLeaf == true) {
-
+			
 			NodeElement* e = new NodeElement(blockNumber,score);
 			root->element.push_back(*e);
 			sort(root->element.begin(), root->element.end(), CompareObj);
@@ -144,6 +173,7 @@ public:
 				node1->elementNumber = mid_idx;
 				node1->nextNode = BtreeAllocatedBlock + 1;
 				node1->lastBlockNumber = 0;
+				node1->prevBlockNumber = 0;
 				//node1->element
 				Block b1, b2;
 				bout->seekp(BlockSize* node1->thisblockNumber);
@@ -160,11 +190,18 @@ public:
 				bout->write((char*)&node1->nextNode, 4);
 				bout->seekp(BlockSize* node1->thisblockNumber + 13);
 				bout->write((char*)&node1->lastBlockNumber, 4);
+				bout->seekp(BlockSize* node1->thisblockNumber + 17);
+				bout->write((char*)&node1->prevBlockNumber, 4);
+				char s2 = 'a';
 				for (int i = 0; i < mid_idx; i++) {
-					bout->seekp(BlockSize* node1->thisblockNumber + 17 + (i * 8));
-					bout->write((char*)&node1->element[i].blockNumber, 4);
-					bout->seekp(BlockSize* node1->thisblockNumber + 17 + (i * 8) + 4);
-					bout->write((char*)&node1->element[i].score, 4);
+					bout->seekp(BlockSize* node1->thisblockNumber + 21 + (i * 8));
+					bout->write((char*)&root->element[i].blockNumber, 4);
+					bout->seekp(BlockSize* node1->thisblockNumber + 21 + (i * 8) + 4);
+					bout->write((char*)&root->element[i].score, 4);
+					if (i == mid_idx - 1) {
+						bout->seekp(BlockSize* node1->thisblockNumber + 21 + (i * 8) + 8);
+						bout->write((char*)&s2, 1);
+					}
 				}
 
 				node2->isLeaf = true;
@@ -172,6 +209,7 @@ public:
 				node2->elementNumber = mid_idx;
 				node2->nextNode = 0;
 				node2->lastBlockNumber = 0;
+				node2->prevBlockNumber = 0;
 				//node2->element
 		
 				bout->seekp(BlockSize* node2->thisblockNumber);
@@ -188,24 +226,330 @@ public:
 				bout->write((char*)&node2->nextNode, 4);
 				bout->seekp(BlockSize* node2->thisblockNumber + 13);
 				bout->write((char*)&node2->lastBlockNumber, 4);
+				bout->seekp(BlockSize* node2->thisblockNumber + 17);
+				bout->write((char*)&node2->prevBlockNumber, 4);
+				char s = 'a';
 				for (int i = mid_idx; i < root->element.size(); i++) {
-					bout->seekp(BlockSize* node2->thisblockNumber + 17 + ( (i-mid_idx) * 8));
-					bout->write((char*)&node2->element[i].blockNumber, 4);
-					bout->seekp(BlockSize* node2->thisblockNumber + 17 + ( (i-mid_idx) * 8) + 4);
-					bout->write((char*)&node2->element[i].score, 4);
+					if (i == root->element.size() - 1)
+						cout << "";
+					bout->seekp(BlockSize* node2->thisblockNumber + 21 + ( (i-mid_idx) * 8));
+					bout->write((char*)&root->element[i].blockNumber, 4);
+					bout->seekp(BlockSize* node2->thisblockNumber + 21 + ( (i-mid_idx) * 8) + 4);
+					bout->write((char*)&root->element[i].score, 4);
+					if (i == root->element.size() - 1) {
+						bout->seekp(BlockSize* node2->thisblockNumber + 21 + ((i - mid_idx) * 8) + 8);
+						bout->write((char*)&s, 1);
+					}
 				}
+				
 				rootNode->isLeaf = false;
 				rootNode->elementNumber = 1;
-				NodeElement* midEle = new NodeElement(node1->thisblockNumber, rootNode->element[mid_idx].score);
+				NodeElement* midEle = new NodeElement(node1->thisblockNumber, root->element[mid_idx].score);
 				rootNode->element.push_back(*midEle);
 				rootNode->lastBlockNumber = node2->thisblockNumber;
 				rootNode->nextNode = 0;
 				rootNode->thisblockNumber = 0;
-				
+				rootNode->prevBlockNumber = 0;
 				root = rootNode;
-				delete node1, node2, rootNode,midEle;
+				delete node1, node2, midEle;
 			}
 
+		}
+		else if (!root->isLeaf) {
+			ifstream bin("student.idx", ios_base::in | ios_base::binary);
+			bool islast = false;
+			int nextBlock = 0;
+			Node* temp,*temp2;
+			temp = root;
+			temp2 = new Node();
+			int idx = 0;
+			while (!temp->isLeaf) {
+				while (score > temp->element[idx].score) {
+					idx++;
+					if (idx == temp->element.size()) {
+						nextBlock = temp->lastBlockNumber;
+						break;
+					}
+				}
+				if(!nextBlock)
+					nextBlock = temp->element[idx].blockNumber;
+
+				bin.seekg(BlockSize*nextBlock);
+				bin.read((char*)&temp2->isLeaf, 1);
+				bin.seekg(BlockSize*nextBlock + 1);
+				bin.read((char*)&temp2->thisblockNumber, 4);
+				bin.seekg(BlockSize*nextBlock + 5);
+				bin.read((char*)&temp2->elementNumber, 4);
+				bin.seekg(BlockSize*nextBlock + 9);
+				bin.read((char*)&temp2->nextNode, 4);
+				bin.seekg(BlockSize*nextBlock + 13);
+				bin.read((char*)&temp2->lastBlockNumber, 4);
+				bin.seekg(BlockSize*nextBlock + 17);
+				bin.read((char*)&temp2->prevBlockNumber, 4);
+				
+				for (int i = 0; i < temp2->elementNumber; i++) {
+					if (i == temp2->elementNumber - 1)
+						cout << "";
+					bin.seekg(BlockSize*nextBlock + 21 + (8*i) ); 
+					bin.read((char*)&temp_blockNum,4);
+					
+					bin.seekg(BlockSize*nextBlock + 25 + (8*i));
+					bin.read((char*)&temp_score,4);
+					NodeElement* e20 = new NodeElement(temp_blockNum, temp_score);
+					temp2->element.push_back(*e20);
+				}
+				temp = temp2;	
+			}
+			NodeElement e(blockNumber, score);
+			temp->element.push_back(e);
+			temp->elementNumber++;
+			sort(temp->element.begin(), temp->element.end(), CompareObj);
+
+
+			if (temp->elementNumber > Bfactor) {
+				Node* newNode = new Node();
+				int idx = temp->element.size() / 2;
+
+				newNode->elementNumber = idx;
+				newNode->isLeaf = true;
+				newNode->prevBlockNumber = temp->prevBlockNumber;
+				newNode->thisblockNumber = ++BtreeAllocatedBlock;
+				newNode->nextNode = temp->thisblockNumber;
+				newNode->lastBlockNumber = 0;
+				Block b1,b2;
+
+				bout->seekp(BlockSize* newNode->thisblockNumber);
+				bout->write((char*)&b1, sizeof b1);
+
+				bout->seekp(BlockSize* newNode->thisblockNumber);
+				bout->write((char*)&newNode->isLeaf, 1);
+				bout->seekp(BlockSize* newNode->thisblockNumber + 1);
+				bout->write((char*)&newNode->thisblockNumber, 4);
+				bout->seekp(BlockSize* newNode->thisblockNumber + 5);
+				bout->write((char*)&newNode->elementNumber, 4);
+
+				bout->seekp(BlockSize* newNode->thisblockNumber + 9);
+				bout->write((char*)&newNode->nextNode, 4);
+				bout->seekp(BlockSize* newNode->thisblockNumber + 13);
+				bout->write((char*)&newNode->lastBlockNumber, 4);
+				bout->seekp(BlockSize* newNode->thisblockNumber + 17);
+				bout->write((char*)&newNode->prevBlockNumber, 4);
+				char s3 = 'a';
+				for (int i = 0; i < idx; i++) {
+					bout->seekp(BlockSize* newNode->thisblockNumber + 21 + (i * 8));
+					bout->write((char*)&temp->element[i].blockNumber, 4);
+					bout->seekp(BlockSize* newNode->thisblockNumber + 21 + (i * 8) + 4);
+					bout->write((char*)&temp->element[i].score, 4);
+					if (i == idx - 1) {
+						bout->seekp(BlockSize* newNode->thisblockNumber + 21 + (i * 8) + 8);
+						bout->write((char*)&s3, 1);
+					}
+				}
+				temp->elementNumber = idx;
+				bout->seekp(BlockSize* temp->thisblockNumber);
+				bout->write((char*)&b2, sizeof b2);
+
+				bout->seekp(BlockSize* temp->thisblockNumber);
+				bout->write((char*)&temp->isLeaf, 1);
+				bout->seekp(BlockSize* temp->thisblockNumber + 1);
+				bout->write((char*)&temp->thisblockNumber, 4);
+				bout->seekp(BlockSize* temp->thisblockNumber + 5);
+				bout->write((char*)&temp->elementNumber, 4);
+
+				bout->seekp(BlockSize* temp->thisblockNumber + 9);
+				bout->write((char*)&temp->nextNode, 4);
+				bout->seekp(BlockSize* temp->thisblockNumber + 13);
+				bout->write((char*)&temp->lastBlockNumber, 4);
+				bout->seekp(BlockSize* temp->thisblockNumber + 17);
+				bout->write((char*)&temp->prevBlockNumber, 4);
+				char s4 = 'a';
+				for (int i = idx; i < 2*idx; i++) {
+					bout->seekp(BlockSize* temp->thisblockNumber + 21 + (i * 8));
+					bout->write((char*)&temp->element[i].blockNumber, 4);
+					bout->seekp(BlockSize* temp->thisblockNumber + 21 + (i * 8) + 4);
+					bout->write((char*)&temp->element[i].score, 4);
+					if (i == 2*idx - 1) {
+						bout->seekp(BlockSize* temp->thisblockNumber + 21 + (i * 8) + 8);
+						bout->write((char*)&s4, 1);
+					}
+				}
+				if (temp->prevBlockNumber == 0) {
+					NodeElement e10(newNode->thisblockNumber, temp->element[idx].score);
+					root->element.push_back(e10);
+					root->elementNumber++;
+					sort(root->element.begin(), root->element.end(), CompareObj);
+					if (root->element.size() > Bfactor) {
+						Node* node1 = new Node();
+						Node* node2 = new Node();
+						Node* rootNode = new Node();
+						int mid_idx = root->element.size() / 2;
+						node1->isLeaf = true;
+						node1->thisblockNumber = ++BtreeAllocatedBlock;
+						node1->elementNumber = mid_idx;
+						node1->nextNode = BtreeAllocatedBlock + 1;
+						node1->lastBlockNumber = 0;
+						node1->prevBlockNumber = 0;
+						//node1->element
+						Block b5, b6;
+						bout->seekp(BlockSize* node1->thisblockNumber);
+						bout->write((char*)&b1, sizeof b1);
+						bout->seekp(BlockSize* node1->thisblockNumber);
+						bout->write((char*)&node1->isLeaf, 1);
+						bout->seekp(BlockSize* node1->thisblockNumber + 1);
+						bout->write((char*)&node1->thisblockNumber, 4);
+						bout->seekp(BlockSize* node1->thisblockNumber + 5);
+						bout->write((char*)&node1->elementNumber, 4);
+						bout->seekp(BlockSize* node1->thisblockNumber + 9);
+						bout->write((char*)&node1->nextNode, 4);
+						bout->seekp(BlockSize* node1->thisblockNumber + 13);
+						bout->write((char*)&node1->lastBlockNumber, 4);
+						bout->seekp(BlockSize* node1->thisblockNumber + 17);
+						bout->write((char*)&node1->prevBlockNumber, 4);
+						char s5 = 'a';
+						for (int i = 0; i < mid_idx; i++) {
+							bout->seekp(BlockSize* node1->thisblockNumber + 21 + (i * 8));
+							bout->write((char*)&node1->element[i].blockNumber, 4);
+							bout->seekp(BlockSize* node1->thisblockNumber + 21 + (i * 8) + 4);
+							bout->write((char*)&node1->element[i].score, 4);
+							if (i == mid_idx - 1) {
+								bout->seekp(BlockSize* node1->thisblockNumber + 21 + (i * 8) + 8);
+								bout->write((char*)&s5, 1);
+							}
+						}
+						node2->isLeaf = true;
+						node2->thisblockNumber = ++BtreeAllocatedBlock;
+						node2->elementNumber = mid_idx;
+						node2->nextNode = 0;
+						node2->lastBlockNumber = 0;
+						node2->prevBlockNumber = 0;
+						//node2->element
+
+						bout->seekp(BlockSize* node2->thisblockNumber);
+						bout->write((char*)&b2, sizeof b2);
+
+						bout->seekp(BlockSize* node2->thisblockNumber);
+						bout->write((char*)&node2->isLeaf, 1);
+						bout->seekp(BlockSize* node2->thisblockNumber + 1);
+						bout->write((char*)&node2->thisblockNumber, 4);
+						bout->seekp(BlockSize* node2->thisblockNumber + 5);
+						bout->write((char*)&node2->elementNumber, 4);
+						bout->seekp(BlockSize* node2->thisblockNumber + 9);
+						bout->write((char*)&node2->nextNode, 4);
+						bout->seekp(BlockSize* node2->thisblockNumber + 13);
+						bout->write((char*)&node2->lastBlockNumber, 4);
+						bout->seekp(BlockSize* node2->thisblockNumber + 17);
+						bout->write((char*)&node2->prevBlockNumber, 4);
+						char s6 = 'a';
+						for (int i = mid_idx; i < root->element.size(); i++) {
+							bout->seekp(BlockSize* node2->thisblockNumber + 21 + ((i - mid_idx) * 8));
+							bout->write((char*)&node2->element[i].blockNumber, 4);
+							bout->seekp(BlockSize* node2->thisblockNumber + 21 + ((i - mid_idx) * 8) + 4);
+							bout->write((char*)&node2->element[i].score, 4);
+							if (i == root->element.size()- 1) {
+								bout->seekp(BlockSize* node2->thisblockNumber + 21 + (i * 8) + 8);
+								bout->write((char*)&s6, 1);
+							}
+						}
+						rootNode->isLeaf = false;
+						rootNode->elementNumber = 1;
+						NodeElement* midEle = new NodeElement(node1->thisblockNumber, rootNode->element[mid_idx].score);
+						rootNode->element.push_back(*midEle);
+						rootNode->lastBlockNumber = node2->thisblockNumber;
+						rootNode->nextNode = 0;
+						rootNode->thisblockNumber = 0;
+						rootNode->prevBlockNumber = 0;
+						root = rootNode;
+						delete node1, node2, midEle;
+					}
+				}
+				Node* newNode5 = new Node();
+				
+				bin.seekg(BlockSize*temp->prevBlockNumber);
+				bin.read((char*)&newNode5->isLeaf, 1);
+				bin.seekg(BlockSize*temp->prevBlockNumber + 1);
+				bin.read((char*)&newNode5->thisblockNumber, 4);
+				bin.seekg(BlockSize*temp->prevBlockNumber + 5);
+				bin.read((char*)&newNode5->elementNumber, 4);
+				bin.seekg(BlockSize*temp->prevBlockNumber + 9);
+				bin.read((char*)&newNode5->nextNode, 4);
+				bin.seekg(BlockSize*temp->prevBlockNumber + 13);
+				bin.read((char*)&newNode5->lastBlockNumber, 4);
+				bin.seekg(BlockSize*temp->prevBlockNumber + 17);
+				bin.read((char*)&newNode5->prevBlockNumber, 4);
+				for (int i = 0; i < newNode5->elementNumber; i++) {
+					bin.seekg(BlockSize*temp->prevBlockNumber + 21 + (8 * i));
+					bin.read((char*)&temp_blockNum, 4);
+					bin.seekg(BlockSize*temp->prevBlockNumber + 21 + (8 * i) + 4);
+					bin.read((char*)&temp_score, 4);
+					NodeElement e30(temp_blockNum, temp_score);
+					newNode5->element.push_back(e30);
+				}
+				NodeElement ee(temp->thisblockNumber, temp->element[idx].score);
+				newNode5->element.push_back(ee);
+				newNode5->elementNumber++;
+				sort(newNode5->element.begin(), newNode5->element.end(), CompareObj);
+
+				Block b9;
+				bout->seekp(BlockSize* newNode5->thisblockNumber);
+				bout->write((char*)&b9, sizeof b9);
+
+				bout->seekp(BlockSize* newNode5->thisblockNumber);
+				bout->write((char*)&newNode5->isLeaf, 1);
+				bout->seekp(BlockSize* newNode5->thisblockNumber + 1);
+				bout->write((char*)&newNode5->thisblockNumber, 4);
+				bout->seekp(BlockSize* newNode5->thisblockNumber + 5);
+				bout->write((char*)&newNode5->elementNumber, 4);
+
+				bout->seekp(BlockSize* newNode5->thisblockNumber + 9);
+				bout->write((char*)&newNode5->nextNode, 4);
+				bout->seekp(BlockSize* newNode5->thisblockNumber + 13);
+				bout->write((char*)&newNode5->lastBlockNumber, 4);
+				bout->seekp(BlockSize* newNode5->thisblockNumber + 17);
+				bout->write((char*)&newNode5->prevBlockNumber, 4);
+				char s7 = 'a';
+				for (int i = 0; i < newNode5->element.size(); i++) {
+					bout->seekp(BlockSize* newNode5->thisblockNumber + 21 + (i * 8));
+					bout->write((char*)&newNode5->element[i].blockNumber, 4);
+					bout->seekp(BlockSize* newNode5->thisblockNumber + 21 + (i * 8) + 4);
+					bout->write((char*)&newNode5->element[i].score, 4);
+					if (i == newNode5->element.size() - 1) {
+						bout->seekp(BlockSize* newNode5->thisblockNumber + 21 + (i * 8) + 8);
+						bout->write((char*)&s7, 1);
+					}
+
+				}
+
+			}
+			else {
+				Block b3;
+				bout->seekp(BlockSize* temp->thisblockNumber);
+				bout->write((char*)&b3, sizeof b3);
+
+				bout->seekp(BlockSize* temp->thisblockNumber);
+				bout->write((char*)&temp->isLeaf, 1);
+				bout->seekp(BlockSize* temp->thisblockNumber + 1);
+				bout->write((char*)&temp->thisblockNumber, 4);
+				bout->seekp(BlockSize* temp->thisblockNumber + 5);
+				bout->write((char*)&temp->elementNumber, 4);
+
+				bout->seekp(BlockSize* temp->thisblockNumber + 9);
+				bout->write((char*)&temp->nextNode, 4);
+				bout->seekp(BlockSize* temp->thisblockNumber + 13);
+				bout->write((char*)&temp->lastBlockNumber, 4);
+				bout->seekp(BlockSize* temp->thisblockNumber + 17);
+				bout->write((char*)&temp->prevBlockNumber, 4);
+				char s8 = 'a';
+				for (int i = 0; i < temp->element.size(); i++) {
+					bout->seekp(BlockSize* temp->thisblockNumber + 21 + (i * 8));
+					bout->write((char*)&temp->element[i].blockNumber, 4);
+					bout->seekp(BlockSize* temp->thisblockNumber + 21 + (i * 8) + 4);
+					bout->write((char*)&temp->element[i].score, 4);
+					if (i == temp->element.size() - 1) {
+						bout->seekp(BlockSize* temp->thisblockNumber + 21 + (i * 8) + 8);
+						bout->write((char*)&s8, 1);
+					}
+				}
+			}
 		}
 	}
 	void resize() {
@@ -529,11 +873,13 @@ int main() {
 	char newline[50];
 	Student stu;
 	Professor prof;
-
+	fin_btree >> stu_n;
 	fin_stu >> stu_n;
 	fin_prof >> prof_n;
+	
 	fin_stu.getline(newline, 50);
 	fin_prof.getline(newline, 50);
+	fin_btree.getline(newline, 50);
 	//for (int i = 0; i < prof_n; i++) {
 	//	prof = getProfessor();
 	//}
@@ -547,10 +893,17 @@ int main() {
 	prof_hash_out->open("professor.hash", ios_base::out | ios_base::binary);
 	Block b, b1;
 
+	ofstream* bTreeOut = new ofstream();
+	bTreeOut->open("student.idx", ios_base::out | ios_base::binary);
+	Block bb;
+	bTreeOut->write((char*)&bb, sizeof bb);
+	Btree btree;
+
+
 	stu_hash_out->write((char*)&b, sizeof b);
 	prof_hash_out->write((char*)&b1, sizeof b1);
 	bool resize_check;
-	for (int i = 0; i < 100; i++) {
+	for (int i = 0; i < stu_n; i++) {
 
 		stu = getStudent();
 		resize_check = stuHashInsert(&stu, addr_table, stu_hash_out);
@@ -559,7 +912,7 @@ int main() {
 			//stu_hash_out->open("student.hash", ios_base::out | ios_base::binary);
 		}
 	}
-	for (int i = 0; i < 100; i++) {
+	for (int i = 0; i < prof_n; i++) {
 		prof = getProfessor();
 		resize_check = profHashInsert(&prof, addr_table, prof_hash_out);
 		if (resize_check) {
@@ -591,20 +944,57 @@ int main() {
 		faddr.write((char*)&addr_table->profHashAddrTable[i].record_num, 4);
 	}
 
-	ofstream* bTreeOut = new ofstream();
-	bTreeOut->open("student.idx", ios_base::out | ios_base::binary);
-	Block bb;
-	bTreeOut->write((char*)&bb, sizeof bb);
-
+		
+	
 	
 	fin_stu.close();
 	fin_prof.close();
 	fout_stu.close();
 	fout_prof.close();	
+	Student stu_Btree;
+	for (int i = 0; i < 1000; i++) {
+		stu_Btree = getStudentForBtree();
+		btree.insert(stu_Btree.stu_score, addr_table->stuHashAddrTable[stu_Btree.stu_id % stu_valid_size].block_num, bTreeOut);
+	}
+	
+
+	int temp_blockNum;
+	float temp_score;
+	
+	cout << btree.root->element[0].score << " " << btree.root->element[1].score;
+	bTreeOut->close();
+	ofstream bTreeOut2("student.idx", ios_base::in | ios_base::binary);
+	bTreeOut2.write((char*)&(btree.root->isLeaf), 1);
+	bTreeOut2.seekp(1);
+	bTreeOut2.write((char*)&(btree.root->thisblockNumber), 4);
+	bTreeOut2.seekp(5);
+	bTreeOut2.write((char*)&(btree.root->elementNumber), 4);
+
+	bTreeOut2.seekp(9);
+	bTreeOut2.write((char*)&(btree.root->nextNode), 4);
+	bTreeOut2.seekp(13);
+	bTreeOut2.write((char*)&(btree.root->lastBlockNumber), 4);
+	bTreeOut2.seekp(17);
+	bTreeOut2.write((char*)&(btree.root->prevBlockNumber), 4);
+	for (int i = 0; i < btree.root->element.size(); i++) {
+		bTreeOut2.seekp(21 + i * 8);
+		bTreeOut2.write((char*)&(btree.root->element[i].blockNumber), 4);
+		bTreeOut2.seekp(25 + i * 8) ;
+		bTreeOut2.write((char*)&(btree.root->element[i].score), 4);
+	}
+	ifstream t("student.idx",ios_base::in | ios_base::binary);
+	int a;
+	t.seekg(1);
+	t.read((char*)&a, 4);
+	cout <<endl << a;
+	bTreeOut2.close();
+	fin_btree.close();
+	delete bTreeOut;
 	delete stu_hash_out;
 	delete prof_hash_out;
 	delete addr_table;
 	
+	
 	return 0;
 
-}
+}*/
